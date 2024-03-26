@@ -15,10 +15,12 @@ export class CountriesService {
   getCountriesByCurrency(currencyCode: string) {
     return this.http.get<Country[]>("https://restcountries.com/v3.1/currency/" + currencyCode);
   }
+
   getAllCountries() {
     return this.http.get<Country[]>("https://restcountries.com/v3.1/all/");
   }
-  getCurrencies(): Observable<Set<Currency>> {
+
+  getCurrencies(): Observable<Map<string, Currency>> {
     return this.http.get<Country[]>("https://restcountries.com/v3.1/all/").pipe(
       map(countries => {
         let currencies = new Map<string, Currency>();
@@ -26,15 +28,12 @@ export class CountriesService {
           if (country.currencies) {
             for (const currencyCode in country.currencies) {
               if (!currencies.has(currencyCode)) {
-                currencies.set(currencyCode, {
-                  ...country.currencies[currencyCode],
-                  code: currencyCode,
-                })
+                currencies.set(currencyCode, country.currencies[currencyCode])
               }
             }
           }
         });
-        return new Set(currencies.values());
+        return currencies;
       })
     )
   }

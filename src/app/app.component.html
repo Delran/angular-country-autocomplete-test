@@ -4,17 +4,17 @@
     @if (inputFocus()) {
       <div class="autocomplete">
         @for (country of filteredCountries(); track country) {
-          <div class="autocomplete-option" (click)="selectCountry(country.name.common)">
+          <div class="autocomplete-option" (click)="this.inputControl.setValue(country.name.common)">
             <span>{{country.name.common}}</span>
           </div>
         }
       </div>
     }
   </div>
-  <select #select style="width: 20%" (change)="onSelectChange()">
+  <select [formControl]="selectControl" style="width: 20%">
     <option>None</option>
-    @for (currency of currencies(); track currency) {
-      <option [value]="currency.code">{{currency.name}} {{currency.symbol}}</option>
+    @for (currency of currenciesKeys(); track currency) {
+      <option [value]="currency">{{currenciesMap.get(currency)?.name}} {{currenciesMap.get(currency)?.symbol}}</option>
     }
   </select>
 </div>

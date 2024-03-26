@@ -1,8 +1,9 @@
-import { Component, ElementRef, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Country, Currency } from "./models";
 import { CountriesService } from "./countries.service";
 import { FormControl, ReactiveFormsModule } from "@angular/forms";
+import { Subject, takeUntil } from "rxjs";
 
 @Component({
   selector: 'app-root',
@@ -14,16 +15,19 @@ import { FormControl, ReactiveFormsModule } from "@angular/forms";
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
 
-  protected currencies = signal(new Set<Currency>());
   protected inputFocus = signal(false);
+  protected currenciesKeys = signal(new Array<string>());
   protected filteredCountries = signal<Country[]>([]);
-  protected countries: Country[] = [];
+
+  protected currenciesMap = new Map<string, Currency>();
+  protected countries = new Array<Country>();
 
   protected inputControl = new FormControl<string>("");
+  protected selectControl = new FormControl<string>("None", {nonNullable: true});
 
-  @ViewChild('select') selectElement!: ElementRef<HTMLSelectElement>;
+  private destroySubscription = new Subject<void>();
 
   constructor(
     private countriesService: CountriesService,
@@ -31,53 +35,58 @@ export class AppComponent implements OnInit {
   }
   ngOnInit(): void {
     this.countriesService.getCurrencies().subscribe({
-      next: currencies => this.currencies.set(currencies)
+      next: currencies => {
+        this.currenciesMap = currencies;
+        this.currenciesKeys.set(Array.from(this.currenciesMap.keys()));
+      }
     })
     this.countriesService.getAllCountries().subscribe({
       next: countries => {
-        this.countries = countries;
-        this.filteredCountries.set(this.countries)
+        this.setCountries(countries);
       }
     })
 
-    this.inputControl.valueChanges.subscribe({
+    this.inputControl.valueChanges.pipe(takeUntil(this.destroySubscription)).subscribe({
       next: value => {
         if (value)
           this.filteredCountries.set(this.countries.filter(country => {
             return country.name.common.toLowerCase().includes(value.toLowerCase());
           }));
-        else
-          this.filteredCountries.set(this.countries);
+        else this.filteredCountries.set(this.countries);
+      }
+    })
+
+    this.selectControl.valueChanges.pipe(takeUntil(this.destroySubscription)).subscribe({
+      next: selectedCurrency => {
+        this.inputControl.reset();
+        if (selectedCurrency !== "None") {
+          this.countriesService.getCountriesByCurrency(selectedCurrency).subscribe({
+            next: countries => {
+              this.setCountries(countries);
+            }
+          })
+        } else {
+          this.countriesService.getAllCountries().subscribe({
+            next: countries => {
+              this.setCountries(countries);
+            }
+          })
+        }
       }
     })
   }
 
-  onSelectChange() {
-    this.inputControl.setValue("");
-    if (this.selectElement.nativeElement.value === "None") {
-      this.countriesService.getAllCountries().subscribe({
-        next: countries => {
-          this.countries = countries;
-          this.filteredCountries.set(countries);
-        }
-      })
-    } else {
-      this.countriesService.getCountriesByCurrency(this.selectElement.nativeElement.value).subscribe({
-        next: countries => {
-          this.countries = countries;
-          this.filteredCountries.set(countries);
-        }
-      })
-    }
+  ngOnDestroy() {
+    this.destroySubscription.next();
+    this.destroySubscription.complete();
   }
 
-  protected readonly console = console;
-
-  onBlur() {
+  protected onBlur() {
     setTimeout(() => (this.inputFocus.set(false)), 100);
   }
 
-  selectCountry(countryName: string) {
-    this.inputControl.setValue(countryName);
+  private setCountries(countries: Country[]) {
+    this.countries = countries;
+    this.filteredCountries.set(this.countries);
   }
 }
