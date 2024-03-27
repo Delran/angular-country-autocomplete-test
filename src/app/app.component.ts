@@ -1,9 +1,10 @@
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Country, Currency } from "./models";
 import { CountriesService } from "./countries.service";
 import { FormControl, ReactiveFormsModule } from "@angular/forms";
 import { Subject, takeUntil } from "rxjs";
+
 
 @Component({
   selector: 'app-root',
@@ -17,6 +18,8 @@ import { Subject, takeUntil } from "rxjs";
 })
 export class AppComponent implements OnInit, OnDestroy {
 
+  protected noSelectedCurrency = "None";
+
   protected inputFocus = signal(false);
   protected currenciesKeys = signal(new Array<string>());
   protected filteredCountries = signal<Country[]>([]);
@@ -25,9 +28,11 @@ export class AppComponent implements OnInit, OnDestroy {
   protected countries = new Array<Country>();
 
   protected inputControl = new FormControl<string>("");
-  protected selectControl = new FormControl<string>("None", {nonNullable: true});
+  protected selectControl = new FormControl<string>(this.noSelectedCurrency, {nonNullable: true});
 
   private destroySubscription = new Subject<void>();
+
+  @ViewChild("autocompleteArea") autocompleteArea?: ElementRef<HTMLDivElement>;
 
   constructor(
     private countriesService: CountriesService,
@@ -59,7 +64,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.selectControl.valueChanges.pipe(takeUntil(this.destroySubscription)).subscribe({
       next: selectedCurrency => {
         this.inputControl.reset();
-        if (selectedCurrency !== "None") {
+        if (selectedCurrency !== this.noSelectedCurrency) {
           this.countriesService.getCountriesByCurrency(selectedCurrency).subscribe({
             next: countries => {
               this.setCountries(countries);
@@ -81,8 +86,19 @@ export class AppComponent implements OnInit, OnDestroy {
     this.destroySubscription.complete();
   }
 
-  protected onBlur() {
-    setTimeout(() => (this.inputFocus.set(false)), 100);
+  protected onBlurInput($event: FocusEvent) {
+    const focusTarget = $event.relatedTarget;
+
+    if (!this.autocompleteArea || !focusTarget || !(focusTarget instanceof HTMLElement)) {
+      this.inputFocus.set(false)
+    } else if (!this.autocompleteArea.nativeElement.contains(focusTarget)) {
+      this.inputFocus.set(false);
+    }
+  }
+
+  protected onClickAutocompleteOption(name: string) {
+    this.inputControl.setValue(name);
+    this.inputFocus.set(false);
   }
 
   private setCountries(countries: Country[]) {

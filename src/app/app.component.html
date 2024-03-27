@@ -1,10 +1,10 @@
 <div style="display: flex; width: 100%;">
-  <div style="width: 250px">
-    <input [formControl]="inputControl" (focus)="inputFocus.set(true)" (blur)="onBlur()" style="width: 100%">
+  <div style="width: 250px" tabindex="0" >
+    <input [formControl]="inputControl" (focus)="inputFocus.set(true)" (blur)="onBlurInput($event)" style="width: 100%">
     @if (inputFocus()) {
-      <div class="autocomplete">
+      <div #autocompleteArea class="autocomplete">
         @for (country of filteredCountries(); track country) {
-          <div class="autocomplete-option" (click)="this.inputControl.setValue(country.name.common)">
+          <div tabindex="0" class="autocomplete-option" (click)="onClickAutocompleteOption(country.name.common)">
             <span>{{country.name.common}}</span>
           </div>
         }
@@ -12,7 +12,7 @@
     }
   </div>
   <select [formControl]="selectControl" style="width: 20%">
-    <option>None</option>
+    <option>{{ noSelectedCurrency }}</option>
     @for (currency of currenciesKeys(); track currency) {
       <option [value]="currency">{{currenciesMap.get(currency)?.name}} {{currenciesMap.get(currency)?.symbol}}</option>
     }
